@@ -53,8 +53,10 @@ AI_ENABLED = True   # 🔥 ON solo in test controllato
 
 DATA_FILE = "data/prenotazioni.json"
 
-DASH_USER = "admin"
-DASH_PASS = "pizza123"
+DASH_USER = os.environ.get("DASH_USER", "admin")
+DASH_PASS = os.environ.get("DASH_PASS", "pizza123")
+print("BOOT ENV DASH_USER =", os.environ.get("DASH_USER"))
+print("BOOT ENV DASH_PASS =", os.environ.get("DASH_PASS"))
 
 MAX_COPERTI_PER_TURNO = 40
 
@@ -979,6 +981,10 @@ async def login(
     user: str = Form(...),
     password: str = Form(...)
 ):
+    print("FORM USER =", user)
+    print("FORM PASS =", password)
+    print("CONF USER =", DASH_USER)
+    print("CONF PASS =", DASH_PASS)
     if user == DASH_USER and password == DASH_PASS:
         request.session["logged"] = True
         return RedirectResponse("/dashboard", status_code=302)
