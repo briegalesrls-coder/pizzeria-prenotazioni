@@ -12,23 +12,25 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from datetime import datetime, timedelta
 from twilio.twiml.messaging_response import MessagingResponse
+from twilio.twiml.voice_response import VoiceResponse
+from twilio.rest import Client
 from pydantic import BaseModel
-from fastapi.responses import RedirectResponse
 import json, os, uuid, re
+
+# =========================
+# APP
+# =========================
 
 app = FastAPI()
 @app.get("/_ping")
 def ping():
     return {"ok": True}
 
-voice_sessions = {}
+
 
 @app.get("/")
 def root():
     return RedirectResponse(url="/dashboard")
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.sessions import SessionMiddleware
-import os
 
 # =========================
 # CONFIG (ENV)
@@ -44,15 +46,23 @@ if not SESSION_SECRET:
 if not DASH_USER or not DASH_PASS:
     raise RuntimeError("❌ DASH_USER o DASH_PASS non definiti")
 
+# ⏱️ Sessione dashboard (tablet locale OK)
+SESSION_TIMEOUT_SEC = 60 * 60 * 10   # 10 ORE di inattività
+
+# 📁 Persistenza
+DATA_FILE = "data/prenotazioni.json"
+
+# 🍽️ Capienza
+MAX_COPERTI_PER_TURNO = 40
+
+# 🤖 AI
+AI_ENABLED = True
+
 # =========================
-# SESSIONE DASHBOARD
+# MIDDLEWARE
 # =========================
 
-SESSION_TIMEOUT_SEC = 60 * 60 * 10   # ✅ 10 ORE di inattività
-
-# =========================
-# CORS (necessario per dashboard)
-# =========================
+# CORS (dashboard + fetch interni)
 
 app.add_middleware(
     CORSMiddleware,
@@ -61,10 +71,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# =========================
-# SESSION MIDDLEWARE (HARDENED)
-# =========================
-
+# Sessioni (login dashboard)
 IS_PROD = os.environ.get("ENV") == "production"
 
 app.add_middleware(
@@ -75,7 +82,13 @@ app.add_middleware(
     https_only=IS_PROD,              # 🔒 solo HTTPS in prod
 )
 
+# =========================
+# RUNTIME MEMORY
+# =========================
 
+voice_sessions = {}
+prenotazioni = {}
+alert_turni_inviati = {}
 # =========================
 # DEFINIZIONE TURNI – PIANIFICAZIONE SETTIMANALE
 # (STRATO SOPRA IL CORE – NON MODIFICARE IL CORE)
@@ -165,8 +178,8 @@ SOGLIA_TURNO_QUASI_PIENO = 0.85   # 85%
 # ALERT TURNI - STATO - # "2026-01-05": {"turno_1": True, "turno_2": False}
 # =========================
 
-alert_turni_inviati = {}
-prenotazioni = {}
+
+
 
 # =========================
 # PERSISTENZA
