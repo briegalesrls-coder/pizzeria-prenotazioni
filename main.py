@@ -26,53 +26,54 @@ voice_sessions = {}
 @app.get("/")
 def root():
     return RedirectResponse(url="/dashboard")
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+import os
+
 # =========================
-# MIDDLEWARE
+# CONFIG (ENV)
 # =========================
 
+SESSION_SECRET = os.environ.get("SESSION_SECRET")
+DASH_USER = os.environ.get("DASH_USER")
+DASH_PASS = os.environ.get("DASH_PASS")
 
+if not SESSION_SECRET:
+    raise RuntimeError("❌ SESSION_SECRET mancante")
+
+if not DASH_USER or not DASH_PASS:
+    raise RuntimeError("❌ DASH_USER o DASH_PASS non definiti")
+
+# =========================
+# SESSIONE DASHBOARD
+# =========================
+
+SESSION_TIMEOUT_SEC = 60 * 60 * 10   # ✅ 10 ORE di inattività
+
+# =========================
+# CORS (necessario per dashboard)
+# =========================
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],   # OK per ora (chiuso da login)
     allow_methods=["*"],
     allow_headers=["*"],
 )
-import os
 
-SESSION_SECRET = os.environ.get("SESSION_SECRET")
-if not SESSION_SECRET:
-    raise RuntimeError("❌ SESSION_SECRET mancante")
+# =========================
+# SESSION MIDDLEWARE (HARDENED)
+# =========================
+
+IS_PROD = os.environ.get("ENV") == "production"
 
 app.add_middleware(
     SessionMiddleware,
     secret_key=SESSION_SECRET,
+    max_age=SESSION_TIMEOUT_SEC,     # ⏱️ scade dopo 10h di INATTIVITÀ
+    same_site="strict",              # 🔒 anti CSRF
+    https_only=IS_PROD,              # 🔒 solo HTTPS in prod
 )
-
-# =========================
-# CONFIG
-# =========================
-
-SESSION_TIMEOUT_SEC = 300  # 5 minuti
-
-AI_ENABLED = True   # 🔥 ON solo in test controllato
-
-DATA_FILE = "data/prenotazioni.json"
-
-MAX_COPERTI_PER_TURNO = 40
-
-# =========================
-# DASHBOARD AUTH (ENV)
-# =========================
-
-DASH_USER = os.environ.get("DASH_USER")
-DASH_PASS = os.environ.get("DASH_PASS")
-
-if not DASH_USER or not DASH_PASS:
-    raise RuntimeError("❌ DASH_USER o DASH_PASS non definiti nelle env vars")
-
-print("BOOT ENV DASH_USER =", DASH_USER)
-print("BOOT ENV DASH_PASS = ***")
 
 
 # =========================
@@ -470,7 +471,7 @@ def turni_suggeribili(data: str, persone: int):
 from twilio.rest import Client
 
 # memoria runtime (anti-duplicati alert)
-alert_turni_inviati = {}
+
 
 def invia_alert_turno_quasi_pieno(data, turno, coperti, max_coperti):
     alert_turni_inviati.setdefault(data, {})
