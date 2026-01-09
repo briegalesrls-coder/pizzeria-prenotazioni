@@ -17,6 +17,10 @@ from fastapi.responses import RedirectResponse
 import json, os, uuid, re
 
 app = FastAPI()
+@app.get("/_ping")
+def ping():
+    return {"ok": True}
+
 voice_sessions = {}
 
 @app.get("/")
@@ -954,14 +958,41 @@ async def whatsapp_twilio(req: Request):
 # =========================
 # DASHBOARD
 # =========================
-
-@app.get("/dashboard", response_class=HTMLResponse)
-#def dashboard(request: Request):
-#    if not request.session.get("logged"):
-#        return RedirectResponse("/login", status_code=302)
-def dashboard(request: Request):
+@app.get("/login", response_class=HTMLResponse)
+def login_page():
     return """
+    <html>
+    <head><title>Login</title></head>
+    <body style="font-family:Arial;padding:40px">
+      <h2>Login Dashboard</h2>
+      <form method="post" action="/login">
+        <input name="user" placeholder="Username"><br><br>
+        <input name="password" type="password" placeholder="Password"><br><br>
+        <button>Accedi</button>
+      </form>
+    </body>
+    </html>
+    """
+@app.post("/login")
+async def login(
+    request: Request,
+    user: str = Form(...),
+    password: str = Form(...)
+):
+    if user == DASH_USER and password == DASH_PASS:
+        request.session["logged"] = True
+        return RedirectResponse("/dashboard", status_code=302)
 
+    return HTMLResponse("❌ Credenziali errate", status_code=401)
+@app.get("/logout")
+def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse("/login", status_code=302)
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request):
+    if not request.session.get("logged"):
+        return RedirectResponse("/login", status_code=302)
+    return """
 <!DOCTYPE html>
 <html>
 <head>
