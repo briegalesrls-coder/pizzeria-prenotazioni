@@ -48,6 +48,7 @@ if not DASH_USER or not DASH_PASS:
 
 # ⏱️ Sessione dashboard (tablet locale OK)
 SESSION_TIMEOUT_SEC = 60 * 60 * 10   # 10 ORE di inattività
+VOICE_SESSION_TIMEOUT_SEC = 300  # 5 minuti
 
 # 📁 Persistenza
 DATA_FILE = "data/prenotazioni.json"
@@ -961,8 +962,7 @@ async def whatsapp_twilio(req: Request):
         else:
             session_id = mittente
 
-            # 🔒 reset sicurezza (evita stati corrotti)
-            voice_sessions.pop(session_id, None)
+            
 
             reply = gestisci_voice_test(session_id, testo, canale="whatsapp")
             resp.message(reply)
@@ -1516,7 +1516,7 @@ def cleanup_voice_sessions():
     now = datetime.now().timestamp()
     scadute = [
         sid for sid, s in voice_sessions.items()
-        if now - s.get("last_seen", now) > SESSION_TIMEOUT_SEC
+        if now - s.get("last_seen", now) > VOICE_SESSION_TIMEOUT_SEC
     ]
     for sid in scadute:
         del voice_sessions[sid]
@@ -1600,6 +1600,37 @@ def gestisci_voice_test(session_id: str, testo: str, canale: str = "whatsapp"):
     if not testo or not testo.strip():
         return "Non ho sentito nulla. Può ripetere, per favore?"
 
+    # =========================
+    # SESSIONE
+    # =========================
+    now = datetime.now().timestamp()
+
+    s = voice_sessions.setdefault(session_id, {
+        "fase_menu": True,
+        "modalita": None,
+        "nome": None,
+        "cognome": None,
+        "telefono": None,
+        "data": None,
+        "ora": None,
+        "persone": None,
+        "attesa_conferma": False,
+	"prenotazione_creata": False,   # 🔒 ANTI DUPLICATI
+        "last_seen": now
+    })
+    
+# ⏱️ TIMEOUT PRIMA di aggiornare last_seen
+
+    if now - s.get("last_seen", now) > VOICE_SESSION_TIMEOUT_SEC:
+        s.clear()
+        s["chiuso_operatore"] = True
+        s["last_seen"] = now
+        return (
+            "La conversazione precedente è scaduta.\n"
+            "Ripartiamo da capo: mi dica nome e cognome per la prenotazione."
+        )
+
+    s["last_seen"] = now
     testo_l = testo.lower()
     testo_l = testo_l.replace("ù", "u")
     ai_data = None
@@ -1634,10 +1665,8 @@ def gestisci_voice_test(session_id: str, testo: str, canale: str = "whatsapp"):
             "📞 Sei già in contatto con un operatore.\n\n"
             "Se hai bisogno di altro, attendi oppure scrivi *menu*."
         )
-    s = voice_sessions.setdefault(session_id, {
-        "fase_menu": True,
-        #"azione": None
-    })
+
+      
 
     # finché non scelgono 1 / 2 / 3, qualunque messaggio mostra il menu
     if s.get("fase_menu"):
@@ -1757,22 +1786,7 @@ def gestisci_voice_test(session_id: str, testo: str, canale: str = "whatsapp"):
 
 
 
-    # =========================
-    # SESSIONE
-    # =========================
-    now = datetime.now().timestamp()
 
-    s = voice_sessions.setdefault(session_id, {
-        "nome": None,
-        "cognome": None,
-        "telefono": None,
-        "data": None,
-        "ora": None,
-        "persone": None,
-        "attesa_conferma": False,
-	"prenotazione_creata": False,   # 🔒 ANTI DUPLICATI
-        "last_seen": now
-    })
     # =========================
 # 🔒 AUTO-DETECT MODIFICA DA TELEFONO
 # =========================
@@ -1803,18 +1817,11 @@ def gestisci_voice_test(session_id: str, testo: str, canale: str = "whatsapp"):
     # =========================
     # HARDENING: TIMEOUT SESSIONE
     # =========================
-    if now - s.get("last_seen", now) > SESSION_TIMEOUT_SEC:
-        voice_sessions[session_id] = {
-            "chiuso_operatore": True,
-            "last_seen": datetime.now().timestamp()
-        }
-        return (
-            "La chiamata precedente è scaduta.\n"
-            "Ripartiamo da capo: mi dica nome e cognome per la prenotazione."
-        )
+    
+
 
     # aggiorna sempre l’ultimo accesso
-    s["last_seen"] = now
+    
     s.setdefault("modalita", "nuova")        # "nuova" | "modifica"
     s.setdefault("fase_modifica", None)      # telefono | selezione | campo | valore | conferma
     s.setdefault("prenotazione_target", None)
@@ -1845,7 +1852,7 @@ def gestisci_voice_test(session_id: str, testo: str, canale: str = "whatsapp"):
             # 🔒 SEGNA COME CREATA (ANTI DUPLICATI)
             s["prenotazione_creata"] = True
             s["attesa_conferma"] = False
-
+            s["fase_menu"] = False
             # 🔒 CHIUSURA SESSIONE SOLO WHATSAPP (ANTI-LOOP)
             # NOTA: il canale VOICE non entra mai qui
             if canale == "whatsapp":
