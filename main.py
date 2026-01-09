@@ -30,6 +30,8 @@ def root():
 # MIDDLEWARE
 # =========================
 
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -37,17 +39,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.add_middleware(
-    SessionMiddleware,
-    SESSION_SECRET = os.environ.get("SESSION_SECRET")
-
+SESSION_SECRET = os.environ.get("SESSION_SECRET")
 if not SESSION_SECRET:
     raise RuntimeError("❌ SESSION_SECRET mancante")
 
 app.add_middleware(
     SessionMiddleware,
-    secret_key=SESSION_SECRET
+    secret_key=SESSION_SECRET,
 )
+
+# =========================
+# CONFIG
+# =========================
+
+DASH_USER = os.environ.get("DASH_USER")
+DASH_PASS = os.environ.get("DASH_PASS")
+
+if not DASH_USER or not DASH_PASS:
+    raise RuntimeError("❌ DASH_USER o DASH_PASS non definiti")
+
 
 
 # =========================
