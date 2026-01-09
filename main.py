@@ -38,6 +38,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+import os
 
 SESSION_SECRET = os.environ.get("SESSION_SECRET")
 if not SESSION_SECRET:
