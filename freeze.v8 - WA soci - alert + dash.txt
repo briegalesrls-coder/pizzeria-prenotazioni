@@ -1,0 +1,1369 @@
+from fastapi import FastAPI, Request, Form
+from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+from datetime import datetime, timedelta
+from twilio.twiml.messaging_response import MessagingResponse
+from pydantic import BaseModel
+import json, os, uuid, re
+
+app = FastAPI()
+
+# =========================
+# MIDDLEWARE
+# =========================
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key="cambia-questa-chiave"
+)
+
+# =========================
+# CONFIG
+# =========================
+# =========================
+# HARDENING
+# =========================
+SESSION_TIMEOUT_SEC = 300  # 5 minuti
+
+DATA_FILE = "data/prenotazioni.json"
+
+DASH_USER = "admin"
+DASH_PASS = "pizza123"
+
+MAX_COPERTI_PER_TURNO = 40
+# =========================
+# ALERT TURNI
+# =========================
+SOGLIA_TURNO_QUASI_PIENO = 0.85   # 85%
+TURNI = {
+    "turno_1": {"inizio": (19, 0), "fine": (19, 30)},
+    "turno_2": {"inizio": (21, 30), "fine": (22, 0)},
+}
+
+prenotazioni = {}
+
+# =========================
+# PERSISTENZA
+# =========================
+
+def salva():
+    os.makedirs("data", exist_ok=True)
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump({"prenotazioni": prenotazioni}, f, ensure_ascii=False, indent=2)
+
+def carica():
+    global prenotazioni
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            d = json.load(f)
+            prenotazioni = d.get("prenotazioni", {})
+
+carica()
+
+# =========================
+# UTILS
+# =========================
+PAROLE_DA_ESCLUDERE = {
+    "ciao", "vorrei", "prenotare", "prenotazione",
+    "siamo", "si", "no", "grazie", "buonasera",
+    "salve", "per", "a", "alle"
+}
+
+def ora_serale(ora: str) -> str:
+    """
+    Converte 7:20 -> 19:20 nel contesto ristorante serale
+    """
+    h, m = map(int, ora.split(":"))
+
+    # se è un'ora "ambigua" (1–11), assumiamo sera
+    if 1 <= h <= 11:
+        h += 12
+
+    return f"{h:02d}:{m:02d}"
+
+def assegna_turno(ora):
+    h, m = map(int, ora.split(":"))
+    tot = h * 60 + m
+    for k, v in TURNI.items():
+        i = v["inizio"][0] * 60 + v["inizio"][1]
+        f = v["fine"][0] * 60 + v["fine"][1]
+        if i <= tot <= f:
+            return k
+    return None
+
+def descrivi_turni():
+    righe = []
+    for v in TURNI.values():
+        h1, m1 = v["inizio"]
+        h2, m2 = v["fine"]
+        righe.append(f"{h1:02d}:{m1:02d}–{h2:02d}:{m2:02d}")
+    return " / ".join(righe)
+
+def normalizza_ora(ora: str) -> str | None:
+    try:
+        h, m = ora.split(":")
+        h, m = int(h), int(m)
+        if 0 <= h <= 23 and 0 <= m <= 59:
+            return f"{h:02d}:{m:02d}"
+    except Exception:
+        pass
+    return None
+
+
+
+def estrai_nome_cognome(t):
+    t = t.lower().strip()
+    parole = t.split()
+
+    if len(parole) < 2:
+        return None, None
+
+    p1, p2 = parole[0], parole[1]
+
+    if (
+        p1 in PAROLE_DA_ESCLUDERE or
+        p2 in PAROLE_DA_ESCLUDERE or
+        not p1.isalpha() or
+        not p2.isalpha()
+    ):
+        return None, None
+
+    return p1.capitalize(), p2.capitalize()
+
+def ora_valida(ora: str) -> bool:
+    if not ora:
+        return False
+    return assegna_turno(ora) is not None
+
+
+def estrai_numero(t):
+    m = re.search(r"\b3\d{8,9}\b", t)
+    return m.group(0) if m else None
+
+def estrai_persone(t: str) -> int | None:
+    t = t.lower().strip()
+
+    # caso esplicito: "2 persone", "2 pax"
+    m = re.search(r"\b(\d{1,2})\s*(persone|pax)\b", t)
+    if m:
+        return int(m.group(1))
+
+    # numero secco: "2"
+    if t.isdigit():
+        n = int(t)
+        if 1 <= n <= 20:
+            return n
+
+    # fallback: "siamo in 2"
+    m = re.search(r"\b(\d{1,2})\b", t)
+    if m:
+        n = int(m.group(1))
+        if 1 <= n <= 20:
+            return n
+
+    return None
+
+
+def stato_completo(s: dict) -> bool:
+    return all([
+        s.get("nome"),
+        s.get("cognome"),
+        s.get("persone"),
+        s.get("data"),
+        ora_valida(s.get("ora")),
+        s.get("telefono"),
+    ])
+
+
+def estrai_ora(t: str, accetta_numero_secco: bool = False) -> str | None:
+    t = t.lower().strip()
+
+    # HH:MM o H.MM
+    m = re.search(r"\b(\d{1,2})[:\.](\d{2})\b", t)
+    if m:
+        h, mnt = int(m.group(1)), int(m.group(2))
+        if 0 <= h <= 23 and 0 <= mnt <= 59:
+            return f"{h:02d}:{mnt:02d}"
+
+    # NUMERO SECCO → SOLO SE PERMESSO
+    if accetta_numero_secco:
+        m = re.search(r"\b(\d{1,2})\b", t)
+        if m:
+            h = int(m.group(1))
+            if 0 <= h <= 23:
+                return f"{h:02d}:00"
+
+    return None
+
+
+GIORNI_SETTIMANA = {
+    "lunedi": 0, "lunedì": 0,
+    "martedi": 1, "martedì": 1,
+    "mercoledi": 2, "mercoledì": 2,
+    "giovedi": 3, "giovedì": 3,
+    "venerdi": 4, "venerdì": 4,
+    "sabato": 5,
+    "domenica": 6,
+}
+
+MESI = {
+    "gennaio": 1, "febbraio": 2, "marzo": 3,
+    "aprile": 4, "maggio": 5, "giugno": 6,
+    "luglio": 7, "agosto": 8,
+    "settembre": 9, "ottobre": 10,
+    "novembre": 11, "dicembre": 12,
+}
+
+
+def estrai_data(t: str) -> str | None:
+    t = t.lower()
+    oggi = datetime.now().date()
+
+    # =========================
+    #1️⃣ oggi / domani / dopodomani
+    # =========================
+    if "oggi" in t:
+        return oggi.isoformat()
+
+    if "dopodomani" in t:
+        return (oggi + timedelta(days=2)).isoformat()
+
+    if "domani" in t:
+        return (oggi + timedelta(days=1)).isoformat()
+
+    # =========================
+    # 2️⃣ giorni della settimana
+    # =========================
+    for nome, idx in GIORNI_SETTIMANA.items():
+        if nome in t:
+            delta = (idx - oggi.weekday()) % 7
+            if delta ==0:
+                delta = 7
+            return (oggi + timedelta(days=delta)).isoformat()
+
+    # =========================
+    # 3️⃣ formato numerico 02/06(/2026)
+    # =========================
+    m = re.search(r"\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b", t)
+    if m:
+        g, mth, y = m.groups()
+        g, mth = int(g), int(mth)
+        y = int(y) if y else oggi.year
+        if y < 100:
+            y += 2000
+        try:
+            d = datetime(y, mth, g).date()
+            if d < oggi:
+                d = datetime(y + 1, mth, g).date()
+            return d.isoformat()
+        except ValueError:
+            pass
+
+    # =========================
+    # 4️⃣ formato testuale "2 giugno"
+    # =========================
+    m = re.search(r"\b(\d{1,2})\s+([a-z]+)(?:\s+(\d{4}))?\b", t)
+    if m:
+        g, mese_txt, y = m.groups()
+        mese = MESI.get(mese_txt)
+        if mese:
+            y = int(y) if y else oggi.year
+            try:
+                d = datetime(y, mese, int(g)).date()
+                if d < oggi:
+                    d = datetime(y + 1, mese, int(g)).date()
+                return d.isoformat()
+            except ValueError:
+                pass
+
+    # =========================
+    # fallback
+    # =========================
+    return None
+
+
+def coperti_residui(data: str, turno: str) -> int:
+    pren = prenotazioni.get(data, {}).get(turno, [])
+    usati = sum(p["persone"] for p in pren if p["stato"] == "attiva")
+    return MAX_COPERTI_PER_TURNO - usati
+
+def turni_suggeribili(data: str, persone: int):
+    suggeriti = []
+    for k, v in TURNI.items():
+        residui = coperti_residui(data, k)
+        if residui >= persone:
+            h1, m1 = v["inizio"]
+            h2, m2 = v["fine"]
+            suggeriti.append(f"{h1:02d}:{m1:02d}–{h2:02d}:{m2:02d}")
+    return suggeriti
+
+
+
+    # =========================
+    #1️⃣ oggi / domani / dopodomani
+    # =========================
+    if "oggi" in t:
+        return oggi.isoformat()
+
+    if "dopodomani" in t:
+        return (oggi + timedelta(days=2)).isoformat()
+
+    if "domani" in t:
+        return (oggi + timedelta(days=1)).isoformat()
+
+    # =========================
+    # 2️⃣ giorni della settimana
+    # =========================
+    for nome, idx in GIORNI_SETTIMANA.items():
+        if nome in t:
+            delta = (idx - oggi.weekday()) % 7
+            if delta == 0 or "prossimo" in t:
+                delta += 7
+            return (oggi + timedelta(days=delta)).isoformat()
+
+    # =========================
+    # 3️⃣ formato numerico 02/06(/2026)
+    # =========================
+    m = re.search(r"\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b", t)
+    if m:
+        g, mth, y = m.groups()
+        g, mth = int(g), int(mth)
+        y = int(y) if y else oggi.year
+        if y < 100:
+            y += 2000
+        try:
+            d = datetime(y, mth, g).date()
+            if d < oggi:
+                d = datetime(y + 1, mth, g).date()
+            return d.isoformat()
+        except ValueError:
+            pass
+
+    # =========================
+    # 4️⃣ formato testuale "2 giugno"
+    # =========================
+    m = re.search(r"\b(\d{1,2})\s+([a-z]+)(?:\s+(\d{4}))?\b", t)
+    if m:
+        g, mese_txt, y = m.groups()
+        mese = MESI.get(mese_txt)
+        if mese:
+            y = int(y) if y else oggi.year
+            try:
+                d = datetime(y, mese, int(g)).date()
+                if d < oggi:
+                    d = datetime(y + 1, mese, int(g)).date()
+                return d.isoformat()
+            except ValueError:
+                pass
+
+    # =========================
+    # fallback
+    # =========================
+
+
+    from twilio.rest import Client
+
+    def invia_alert_turno_quasi_pieno(data, turno, coperti, max_coperti):
+        h1, m1 = TURNI[turno]["inizio"]
+        h2, m2 = TURNI[turno]["fine"]
+
+        messaggio = (
+            "⚠️ *Turno quasi pieno*\n\n"
+            f"📅 {data}\n"
+            f"🕢 Turno {1 if turno=='turno_1' else 2} "
+            f"({h1:02d}:{m1:02d}–{h2:02d}:{m2:02d})\n"
+            f"👥 {coperti} / {max_coperti} coperti\n\n"
+            "Attenzione: disponibilità limitata."
+        )
+
+        client = Client(
+            os.environ["TWILIO_SID"],
+            os.environ["TWILIO_TOKEN"]
+        )
+
+        for admin in WHATSAPP_ADMINS:
+            client.messages.create(
+                from_="whatsapp:+14155238886",  # Twilio WhatsApp
+                to=admin,
+                body=messaggio
+            )
+
+    return None
+
+# =========================
+# CORE PRENOTAZIONE
+# =========================
+
+def crea_prenotazione(nome, cognome, telefono, data, ora, persone, fonte):
+ # =========================
+    # 🔒 ANTI DUPLICATI (DB LEVEL)
+    # =========================
+    for t in prenotazioni.get(data, {}):
+        for p in prenotazioni[data][t]:
+            if (
+                p["stato"] == "attiva" and
+                p["telefono"] == telefono and
+                p["data"] == data and
+                p["ora"] == ora and
+                p["fonte"] == fonte
+            ):
+                return True, "La prenotazione è già stata registrata. Grazie!"
+
+    turno = assegna_turno(ora)
+    if not turno:
+        return False, "⛔ Orario non disponibile."
+
+    prenotazioni.setdefault(data, {}).setdefault(turno, [])
+# =========================
+# INIT FLAG ALERT TURNO
+# =========================
+    prenotazioni[data].setdefault("_alert_turno_1_quasi_pieno", False)
+    prenotazioni[data].setdefault("_alert_turno_2_quasi_pieno", False)
+    # controllo capienza turno
+    coperti = sum(
+        p["persone"]
+        for p in prenotazioni[data][turno]
+        if p["stato"] == "attiva"
+    )
+
+    if coperti + persone > MAX_COPERTI_PER_TURNO:
+        altri_turni = turni_disponibili(data, persone)
+
+        if altri_turni:
+            return False, (
+            "⛔ Purtroppo il turno scelto è al completo.\n"
+            f"Possiamo proporre questi orari disponibili: {' / '.join(altri_turni)}.\n"
+            "Quale preferisce?"
+            )
+
+        return False, (
+        "⛔ Purtroppo per questo giorno siamo al completo.\n"
+        "Vuole scegliere un altro giorno?"
+        )
+
+
+    pren = {
+        "id": str(uuid.uuid4()),
+        "nome": nome,
+        "cognome": cognome,
+        "telefono": telefono,
+        "data": data,
+        "ora": ora,
+        "turno": turno,
+        "persone": persone,
+        "fonte": fonte,
+        "stato": "attiva",
+        "timestamp": datetime.now().isoformat(),
+	"storico": [
+        {
+            "azione": "creata",
+            "timestamp": datetime.now().isoformat(),
+            "fonte": fonte,
+            "dettagli": {
+                "ora": ora,
+                "persone": persone
+            }
+        }
+    ]
+}
+
+
+    prenotazioni[data][turno].append(pren)
+    prenotazioni[data][turno].append(pren)
+
+# =========================
+# CHECK ALERT TURNO QUASI PIENO
+# =========================
+    coperti_attuali = sum(
+        p["persone"]
+        for p in prenotazioni[data][turno]
+        if p["stato"] == "attiva"
+    )
+
+    soglia = int(MAX_COPERTI_PER_TURNO * SOGLIA_TURNO_QUASI_PIENO)
+
+    flag_key = f"_alert_{turno}_quasi_pieno"
+
+    if coperti_attuali >= soglia and not prenotazioni[data][flag_key]:
+        invia_alert_turno_quasi_pieno(
+            data=data,
+            turno=turno,
+            coperti=coperti_attuali,
+            max_coperti=MAX_COPERTI_PER_TURNO
+        )
+
+        prenotazioni[data][flag_key] = True
+
+    salva()
+
+    return True, (
+        f"✅ Prenotazione confermata\n\n"
+        f"{nome} {cognome}\n"
+        f"📅 {data}\n🕤 {ora}\n"
+        f"👥 {persone} persone\n"
+        f"📞 {telefono}"
+    )
+
+
+# =========================
+# WHATSAPP SOCI - COMANDI
+# =========================
+# =========================
+# WHATSAPP SOCI - PERMESSI
+# =========================
+
+WHATSAPP_ADMINS = {
+    "whatsapp:+393463159796",  # TU
+}
+
+WHATSAPP_STAFF = {
+    "whatsapp:+393449998888",
+}
+
+def ruolo_whatsapp(mittente: str) -> str | None:
+    if mittente in WHATSAPP_ADMINS:
+        return "admin"
+    if mittente in WHATSAPP_STAFF:
+        return "staff"
+    return None
+
+
+# =========================
+# WHATSAPP SOCI - COMANDI
+# =========================
+
+def handle_whatsapp_comandi(testo: str, ruolo: str):
+    t = testo.lower().strip()
+ # -------- COMANDI --------
+    if t == "comandi":
+        return help_whatsapp_comandi(ruolo)
+
+    # STAFF → SOLO LISTA
+    if ruolo == "staff" and not t.startswith("lista"):
+        return "⛔ Permesso negato. Puoi solo visualizzare le prenotazioni."
+
+    # -------- LISTA --------
+    if t.startswith("lista"):
+        parti = t.split(maxsplit=1)
+        if len(parti) < 2:
+            return "Usa: lista oggi | lista domani | lista 2026-01-08"
+
+        data = estrai_data(parti[1])
+        if not data:
+            return "Data non valida."
+
+        righe = []
+        for turno in prenotazioni.get(data, {}):
+            for p in prenotazioni[data][turno]:
+                if p["stato"] == "attiva":
+                    righe.append(
+                        f"{p['id'][:6]} | {p['ora']} | {p['nome']} {p['cognome']} | {p['persone']} pax"
+                    )
+
+        if not righe:
+            return f"Nessuna prenotazione per {data}"
+
+        return "📋 Prenotazioni:\n" + "\n".join(righe)
+
+    # -------- ANNULLA --------
+    if t.startswith("annulla"):
+        if ruolo != "admin":
+            return "⛔ Solo admin può annullare."
+
+        try:
+            _, pid = t.split(maxsplit=1)
+        except ValueError:
+            return "Usa: annulla <ID>"
+
+        for d in prenotazioni:
+            for turno in prenotazioni[d]:
+                for p in prenotazioni[d][turno]:
+                    if p["id"].startswith(pid) and p["stato"] == "attiva":
+                        p["stato"] = "annullata"
+                        p.setdefault("storico", []).append({
+                            "azione": "annullata",
+                            "timestamp": datetime.now().isoformat(),
+                            "fonte": "whatsapp_soci",
+                            "dettagli": {}
+                        })
+                        salva()
+
+                        return "✅ Prenotazione annullata."
+        return "❌ Prenotazione non trovata."
+
+    
+    # -------- RIPRISTINA (UNDO) --------
+    if t.startswith("ripristina"):
+        if ruolo != "admin":
+            return "⛔ Solo admin può ripristinare."
+
+        try:
+            _, pid = t.split(maxsplit=1)
+        except ValueError:
+            return "Usa: ripristina <ID>"
+
+        for d in prenotazioni:
+            for turno in prenotazioni[d]:
+                for p in prenotazioni[d][turno]:
+                    if p["id"].startswith(pid) and p["stato"] == "annullata":
+                        p["stato"] = "attiva"
+                        p.setdefault("storico", []).append({
+                            "azione": "ripristinata",
+                            "timestamp": datetime.now().isoformat(),
+                            "fonte": "whatsapp_soci",
+                            "dettagli": {}
+                        })
+                        salva()
+                        return "♻️ Prenotazione ripristinata."
+
+        return "❌ Prenotazione annullata non trovata."
+    
+
+    # -------- MODIFICA --------
+    if t.startswith("modifica"):
+        if ruolo != "admin":
+            return "⛔ Solo admin può modificare."
+
+        try:
+            _, pid, campo, valore = t.split(maxsplit=3)
+        except ValueError:
+            return "Usa: modifica <ID> ora 21:30 | persone 6"
+
+        for d in prenotazioni:
+            for turno in prenotazioni[d]:
+                for p in prenotazioni[d][turno]:
+                    if p["id"].startswith(pid) and p["stato"] == "attiva":
+
+                        # snapshot prima della modifica
+                        prima = {
+                            "ora": p["ora"],
+                            "persone": p["persone"]
+                        }
+
+                        # -------- CAMPO ORA --------
+                        if campo == "ora":
+                            o = normalizza_ora(valore)
+                            if not o:
+                                return "⛔ Orario non valido."
+
+                            o = ora_serale(o)
+
+                            if not ora_valida(o):
+                                return "⛔ Orario fuori dai turni disponibili."
+
+                            p["ora"] = o
+
+                        # -------- CAMPO PERSONE --------
+                        elif campo == "persone":
+                            if not valore.isdigit():
+                                return "⛔ Numero persone non valido."
+
+                            p["persone"] = int(valore)
+
+                        else:
+                            return "Campo modificabile: ora | persone"
+
+                        # -------- STORICO MODIFICA --------
+                        p.setdefault("storico", []).append({
+                            "azione": "modificata",
+                            "timestamp": datetime.now().isoformat(),
+                            "fonte": "whatsapp_soci",
+                            "dettagli": {
+                                "prima": prima,
+                                "dopo": {
+                                    "ora": p["ora"],
+                                    "persone": p["persone"]
+                                }
+                            }
+                        })
+
+                        salva()
+                        return "✅ Prenotazione modificata."
+
+        return "❌ Prenotazione non trovata."
+    return None
+
+
+def help_whatsapp_comandi(ruolo: str) -> str:
+    if ruolo == "admin":
+        return (
+            "📌 *Comandi disponibili*\n\n"
+            "📋 Lista prenotazioni\n"
+            "• lista oggi\n"
+            "• lista domani\n"
+            "• lista 2026-01-08\n\n"
+            "❌ Annulla prenotazione\n"
+            "• annulla ID\n\n"
+            "♻️ Ripristina prenotazione\n"
+            "• ripristina ID\n\n"
+            "✏️ Modifica prenotazione\n"
+            "• modifica ID ora 21:30\n"
+            "• modifica ID persone 6\n\n"
+            "➕ Inserimento manuale\n"
+            "• Nome Cognome 4 giovedì 21:30 3331234567"
+        )
+
+    if ruolo == "staff":
+        return (
+            "📌 *Comandi disponibili*\n\n"
+            "📋 lista oggi | domani | 2026-01-08\n\n"
+            "ℹ️ Solo visualizzazione"
+        )
+
+    return ""
+
+# =========================
+# WHATSAPP SOCI - ENDPOINT
+# =========================
+
+@app.post("/whatsapp/twilio")
+async def whatsapp_twilio(req: Request):
+    form = await req.form()
+    testo = form.get("Body", "").strip()
+    mittente = form.get("From")
+
+    resp = MessagingResponse()
+
+    ruolo = ruolo_whatsapp(mittente)
+
+
+
+    # =========================
+    # 1️⃣ SOCI / STAFF
+    # =========================
+    if ruolo:
+        # -------------------------
+        # COMANDI (lista / annulla / modifica)
+        # ⬅️ QUI VA QUESTO BLOCCO
+        # -------------------------
+        cmd = handle_whatsapp_comandi(testo, ruolo)
+        if cmd is not None:
+            resp.message(cmd)
+            #resp.message(help_whatsapp_comandi(ruolo))  # 👈 secondo messaggio
+            return PlainTextResponse(str(resp))
+
+        # -------------------------
+        # INSERIMENTO MANUALE (SOLO ADMIN)
+        # -------------------------
+        if ruolo != "admin":
+            resp.message("⛔ Permesso negato.")
+            return PlainTextResponse(str(resp))
+
+        # parsing prenotazione manuale
+        nome, cognome = estrai_nome_cognome(testo)
+        persone = estrai_persone(testo)
+        data = estrai_data(testo)
+
+        ora = estrai_ora(testo, accetta_numero_secco=True)
+        if ora:
+            ora = normalizza_ora(ora)
+            ora = ora_serale(ora)
+
+        telefono = estrai_numero(testo)
+
+        if not all([nome, cognome, persone, data, ora, telefono]):
+            resp.message(
+                "⛔ Formato non valido.\n\n"
+                "Usa:\n"
+                "Nome Cognome 4 giovedì 21:30 3331234567"
+            )
+            return PlainTextResponse(str(resp))
+
+        ok, msg = crea_prenotazione(
+            nome=nome,
+            cognome=cognome,
+            telefono=telefono,
+            data=data,
+            ora=ora,
+            persone=persone,
+            fonte="whatsapp_soci"
+        )
+
+        resp.message(msg)
+        return PlainTextResponse(str(resp))
+
+    # =========================
+    # 2️⃣ CLIENTI (CHATBOT)
+    # =========================
+    session_id = mittente
+    reply = gestisci_voice_test(session_id, testo)
+
+    resp.message(reply)
+    return PlainTextResponse(str(resp))
+
+
+# =========================
+# DASHBOARD
+# =========================
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request):
+    if not request.session.get("logged"):
+        return RedirectResponse("/login", status_code=302)
+
+    return """
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body{font-family:Arial;padding:20px}
+    table{border-collapse:collapse;width:100%}
+    th,td{border:1px solid #ccc;padding:6px;text-align:center}
+    .attiva{background:#d4edda}
+    .annullata{background:#f8d7da}
+
+    .turno-ok{background:#e8f5e9}
+    .turno-warning{background:#fff3cd}
+    .turno-full{background:#f8d7da;font-weight:bold}
+
+    input,select{width:95%}
+    .small{font-size:12px;color:#555}
+  </style>
+</head>
+<body>
+
+<h1>Dashboard Prenotazioni</h1>
+
+<input id="data">
+<button onclick="oggi()">Oggi</button>
+<button onclick="domani()">Domani</button>
+
+<br><br>
+
+<input id="search" placeholder="Cerca nome / cognome / telefono">
+<select id="filtro">
+  <option value="">Tutti</option>
+  <option value="attiva">Attive</option>
+  <option value="annullata">Annullate</option>
+</select>
+<button onclick="carica()">Carica</button>
+
+<br><br>
+
+<table>
+<thead>
+<tr>
+<th>Turno</th>
+<th>Coperti</th>
+<th>Nome</th>
+<th>Cognome</th>
+<th>Telefono</th>
+<th>Ora</th>
+<th>Persone</th>
+<th>Stato</th>
+<th>Azioni</th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+
+<script>
+function oggi(){
+  data.value=new Date().toISOString().slice(0,10);
+  carica();
+}
+function domani(){
+  const d=new Date();
+  d.setDate(d.getDate()+1);
+  data.value=d.toISOString().slice(0,10);
+  carica();
+}
+
+async function carica(){
+  const r = await fetch('/dashboard/lista?data='+data.value);
+  let d = await r.json();
+
+  const q = search.value.toLowerCase();
+  const f = filtro.value;
+
+  d = d.filter(p =>
+    (!q || (p.nome+p.cognome+p.telefono).toLowerCase().includes(q)) &&
+    (!f || p.stato===f)
+  );
+
+  tbody.innerHTML='';
+
+  d.forEach(p=>{
+    const ratio = p.coperti_turno / p.max_coperti;
+    let turnoClass = 'turno-ok';
+    if (ratio >= 1) turnoClass = 'turno-full';
+    else if (ratio >= 0.8) turnoClass = 'turno-warning';
+
+    tbody.innerHTML+=`
+    <tr class="${p.stato}">
+      <td class="${turnoClass}">
+        <b>${p.turno_label}</b><br>
+        <span class="small">${p.turno_fascia}</span>
+      </td>
+      <td class="${turnoClass}">
+        ${p.coperti_turno} / ${p.max_coperti}
+      </td>
+      <td><input id="n_${p.id}" value="${p.nome}"></td>
+      <td><input id="c_${p.id}" value="${p.cognome}"></td>
+      <td><input id="t_${p.id}" value="${p.telefono}"></td>
+      <td><input id="o_${p.id}" value="${p.ora}"></td>
+      <td><input id="p_${p.id}" type="number" value="${p.persone}"></td>
+      <td>${p.stato}</td>
+      <td>
+        ${p.stato==='attiva'
+          ? `<button onclick="modifica('${p.id}')">Modifica</button>
+             <button onclick="annulla('${p.id}')">Annulla</button>`
+          : ''}
+      </td>
+    </tr>`;
+  });
+}
+
+async function modifica(id){
+  await fetch('/dashboard/modifica',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      id,
+      nome:document.getElementById('n_'+id).value,
+      cognome:document.getElementById('c_'+id).value,
+      telefono:document.getElementById('t_'+id).value,
+      ora:document.getElementById('o_'+id).value,
+      persone:parseInt(document.getElementById('p_'+id).value)
+    })
+  });
+  carica();
+}
+
+async function annulla(id){
+  if(!confirm("Annullare la prenotazione?")) return;
+  await fetch('/dashboard/annulla',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id})
+  });
+  carica();
+}
+</script>
+
+</body>
+</html>
+"""
+# =========================
+# DASHBOARD - API
+# =========================
+
+@app.get("/dashboard/lista")
+def lista(data: str):
+    """
+    Ritorna:
+    - prenotazioni del giorno
+    - turno (Turno 1 / Turno 2)
+    - fascia oraria
+    - coperti live per turno
+    - capienza massima
+    """
+    out = []
+
+    for turno, pren_list in prenotazioni.get(data, {}).items():
+
+        # coperti attivi del turno
+        coperti_turno = sum(
+            p["persone"]
+            for p in pren_list
+            if p["stato"] == "attiva"
+        )
+
+        for p in pren_list:
+            r = p.copy()
+
+            # info turno
+            r["coperti_turno"] = coperti_turno
+            r["max_coperti"] = MAX_COPERTI_PER_TURNO
+            r["turno_label"] = "Turno 1" if turno == "turno_1" else "Turno 2"
+
+            h1, m1 = TURNI[turno]["inizio"]
+            h2, m2 = TURNI[turno]["fine"]
+            r["turno_fascia"] = f"{h1:02d}:{m1:02d}–{h2:02d}:{m2:02d}"
+
+            out.append(r)
+
+    return out
+
+
+@app.post("/dashboard/modifica")
+async def modifica(req: Request):
+    """
+    Modifica prenotazione da dashboard
+    (nome, cognome, telefono, ora, persone)
+    """
+    b = await req.json()
+
+    for d in prenotazioni:
+        for t in prenotazioni[d]:
+            for p in prenotazioni[d][t]:
+                if p["id"] == b["id"] and p["stato"] == "attiva":
+                    p.update({
+                        "nome": b["nome"],
+                        "cognome": b["cognome"],
+                        "telefono": b["telefono"],
+                        "ora": b["ora"],
+                        "persone": b["persone"]
+                    })
+                    salva()
+                    return {"ok": True}
+
+    return {"ok": False}
+
+
+@app.post("/dashboard/annulla")
+async def annulla(req: Request):
+    """
+    Annulla prenotazione da dashboard
+    """
+    b = await req.json()
+
+    for d in prenotazioni:
+        for t in prenotazioni[d]:
+            for p in prenotazioni[d][t]:
+                if p["id"] == b["id"]:
+                    p["stato"] = "annullata"
+                    salva()
+                    return {"ok": True}
+
+    return {"ok": False}
+
+# =========================
+# UTILS
+# =========================
+
+def cleanup_voice_sessions():
+    now = datetime.now().timestamp()
+    scadute = [
+        sid for sid, s in voice_sessions.items()
+        if now - s.get("last_seen", now) > SESSION_TIMEOUT_SEC
+    ]
+    for sid in scadute:
+        del voice_sessions[sid]
+
+def applica_modifiche_da_testo(s, testo):
+    """
+    Ritorna True se almeno un campo è stato modificato
+    """
+    modificato = False
+    t = testo.lower()
+
+    # persone
+    p = estrai_persone(t)
+    if p and p != s.get("persone"):
+        s["persone"] = p
+        modificato = True
+
+    # data
+    d = estrai_data(t)
+    if d and d != s.get("data"):
+        s["data"] = d
+        modificato = True
+
+    # ora
+    o = estrai_ora(t, accetta_numero_secco=True)
+    if o:
+        o = normalizza_ora(o)
+        o = ora_serale(o)
+        if o and o != s.get("ora"):
+            s["ora"] = o
+            modificato = True
+
+    return modificato
+
+def turni_disponibili(data: str, persone: int) -> list[str]:
+    disponibili = []
+
+    for turno, v in TURNI.items():
+        prenotazioni.setdefault(data, {}).setdefault(turno, [])
+
+        coperti = sum(
+            p["persone"]
+            for p in prenotazioni[data][turno]
+            if p["stato"] == "attiva"
+        )
+
+        if coperti + persone <= MAX_COPERTI_PER_TURNO:
+            h1, m1 = v["inizio"]
+            h2, m2 = v["fine"]
+            disponibili.append(
+                f"{h1:02d}:{m1:02d}–{h2:02d}:{m2:02d}"
+            )
+
+    return disponibili
+
+# =========================
+# VOICE TEST (STEP 1)
+# =========================
+
+voice_sessions = {}
+
+def gestisci_voice_test(session_id: str, testo: str):
+    # =========================
+    # HARDENING: CLEANUP SESSIONI SCADUTE
+    # =========================
+    cleanup_voice_sessions()
+
+    # =========================
+    # HARDENING: INPUT VUOTO
+    # =========================
+    if not testo or not testo.strip():
+        return "Non ho sentito nulla. Può ripetere, per favore?"
+
+    testo_l = testo.lower()
+
+    # =========================
+    # SESSIONE
+    # =========================
+    now = datetime.now().timestamp()
+
+    s = voice_sessions.setdefault(session_id, {
+        "nome": None,
+        "cognome": None,
+        "telefono": None,
+        "data": None,
+        "ora": None,
+        "persone": None,
+        "attesa_conferma": False,
+	"prenotazione_creata": False,   # 🔒 ANTI DUPLICATI
+        "last_seen": now
+    })
+
+    # =========================
+    # HARDENING: TIMEOUT SESSIONE
+    # =========================
+    if now - s.get("last_seen", now) > SESSION_TIMEOUT_SEC:
+        voice_sessions.pop(session_id, None)
+        return (
+            "La chiamata precedente è scaduta.\n"
+            "Ripartiamo da capo: mi dica nome e cognome per la prenotazione."
+        )
+
+    # aggiorna sempre l’ultimo accesso
+    s["last_seen"] = now
+ 
+    # =========================
+    # 🔴1️⃣ RISPOSTA ALLA CONFERMA (PRIORITÀ ASSOLUTA)
+    # =========================
+    if s.get("attesa_conferma"):
+	# 🔒 BLOCCO DEFINITIVO DUPLICATI (Twilio retry)
+        if s.get("prenotazione_creata"):
+            return "La prenotazione è già stata registrata. Grazie!"
+        if testo_l in {"si", "sì", "confermo", "ok"}:
+            ok, msg = crea_prenotazione(
+                s["nome"],
+                s["cognome"],
+                s["telefono"],
+                s["data"],
+                s["ora"],
+                s["persone"],
+                fonte="voice_test"
+            )
+# 🔒 CHIUSURA DEFINITIVA SESSIONE (ANTI DUPLICATI)
+            s["attesa_conferma"] = False
+            return msg
+
+        if testo_l in {"no", "modifica", "cambia"}:
+            s["attesa_conferma"] = False
+            s["ora"] = None
+            return "Va bene. Cosa desidera modificare?"
+
+        return "Rispondi con sì per confermare o no per modificare."
+
+    # =========================
+    # 🔁 2️⃣ MODIFICA NATURALE
+    # =========================
+    if stato_completo(s) and applica_modifiche_da_testo(s, testo):
+        data_txt = datetime.fromisoformat(s["data"]).strftime("%d/%m/%Y")
+        return (
+            "Perfetto, aggiorno il riepilogo:\n\n"
+            f"👤 {s['nome']} {s['cognome']}\n"
+            f"👥 {s['persone']} persone\n"
+            f"📅 {data_txt}\n"
+            f"🕢 {s['ora']}\n"
+            f"📞 {s['telefono']}\n\n"
+            "Conferma la prenotazione? (sì / no)"
+        )
+
+
+    # =========================
+    #1️⃣ ESTRAZIONI CONTESTUALI
+    # =========================
+    if not s["nome"] or not s["cognome"]:
+            n, c = estrai_nome_cognome(testo)
+            if n and c:
+                s["nome"] = n
+                s["cognome"] = c
+
+    if not s["persone"]:
+        p = estrai_persone(testo)
+        if p:
+            s["persone"] = p
+            return f"Perfetto, {p} persone. Per che giorno desidera prenotare?"
+
+
+    if not s["data"]:
+        d = estrai_data(testo)
+        if d:
+            s["data"] = d
+            turni_ok = turni_suggeribili(s["data"], s["persone"])
+
+            if not turni_ok:
+                return (
+                    "Purtroppo per questo giorno siamo al completo.\n"
+                    "Vuole scegliere un altro giorno?"
+                )
+
+            return (
+                "Perfetto. Per che ora desidera prenotare?\n"
+                f"Al momento sono disponibili: {' / '.join(turni_ok)}."
+            )
+
+    if not s["ora"]:
+        o = estrai_ora(testo, accetta_numero_secco=True)
+        if o:
+            o = normalizza_ora(o)
+            o = ora_serale(o) if o else None
+
+            if not o:
+                return "Non ho capito l’orario. Può ripeterlo?"
+
+        # orario NON in nessun turno → proponi turni
+            if not ora_valida(o):
+                turni_ok = turni_suggeribili(s["data"], s["persone"])
+                if turni_ok:
+                    return (
+                        "A quell’ora non siamo disponibili.\n"
+                        f"Possiamo proporre: {' / '.join(turni_ok)}."
+                    )
+                return "Purtroppo per questo giorno siamo al completo."
+
+            s["ora"] = o
+            return "Perfetto. Mi lascia un numero di telefono?"
+
+# telefono
+    if not s["telefono"]:
+        tel = estrai_numero(testo)
+        if tel:
+            s["telefono"] = tel
+            data_txt = datetime.fromisoformat(s["data"]).strftime("%d/%m/%Y")
+            s["attesa_conferma"] = True
+            return (
+                "Perfetto, riepilogo la prenotazione:\n\n"
+                f"👤 {s['nome']} {s['cognome']}\n"
+                f"👥 {s['persone']} persone\n"
+                f"📅 {data_txt}\n"
+                f"🕢 {s['ora']} (turni: {descrivi_turni()})\n"
+                f"📞 {s['telefono']}\n\n"
+                "Conferma la prenotazione? (sì / no)"
+            )
+
+# =========================
+# 2️⃣ GUIDA CONVERSAZIONALE (SOLO FALLBACK)
+# =========================
+
+    if not s["nome"] or not s["cognome"]:
+        return "Mi dica nome e cognome per la prenotazione."
+
+    if not s["persone"]:
+        return "Per quante persone desidera prenotare?"
+
+    if not s["data"]:
+        return "Per che giorno desidera prenotare?"
+
+    if not ora_valida(s["ora"]):
+        return "A che ora desidera prenotare?"
+
+    if not s["telefono"]:
+        return "Mi lascia un numero di telefono?"
+
+    # =========================
+    # 3️⃣ RIEPILOGO + CONFERMA
+    # =========================
+    if stato_completo(s) and not s["attesa_conferma"]:
+        s["attesa_conferma"] = True
+        data_txt = datetime.fromisoformat(s["data"]).strftime("%d/%m/%Y")
+        return (
+            "Perfetto, riepilogo la prenotazione:\n\n"
+            f"👤 {s['nome']} {s['cognome']}\n"
+            f"👥 {s['persone']} persone\n"
+            f"📅 {data_txt}\n"
+            f"🕢 {s['ora']} (turni: {descrivi_turni()})\n"
+            f"📞 {s['telefono']}\n\n"
+            "Conferma la prenotazione? (sì / no)"
+        )
+
+
+# =========================
+# VOICE TEST SCHEMA
+# =========================
+
+class VoiceTestRequest(BaseModel):
+    session_id: str
+    text: str
+
+@app.post("/voice/test")
+async def voice_test(body: VoiceTestRequest):
+    session_id = body.session_id
+    text = body.text
+
+    if not session_id:
+        return JSONResponse(
+            {"error": "session_id mancante"},
+            status_code=400
+        )
+
+    reply = gestisci_voice_test(session_id, text)
+
+    return {"reply": reply}
+# =========================
+# VOICE TWILIO
+# =========================
+
+from twilio.twiml.voice_response import VoiceResponse
+
+@app.post("/voice")
+async def voice(req: Request):
+    form = await req.form()
+
+    call_sid = form.get("CallSid")
+    speech = form.get("SpeechResult", "").strip()
+
+    vr = VoiceResponse()
+
+    # =========================
+    # PRIMA INTERAZIONE
+    # =========================
+    if not speech:
+        vr.say(
+            "Buonasera, sono l'assistente della pizzeria. "
+            "Vuole prenotare un tavolo?",
+            language="it-IT",
+            voice="alice"
+        )
+    else:
+        reply = gestisci_voice_test(call_sid, speech)
+        vr.say(reply, language="it-IT", voice="alice")
+
+    # =========================
+    # CONTINUA ASCOLTO
+    # =========================
+    vr.gather(
+        input="speech",
+        language="it-IT",
+        action="/voice",
+        method="POST",
+        timeout=5
+    )
+
+    return PlainTextResponse(str(vr))
+
+

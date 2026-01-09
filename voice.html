@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Assistente Vocale Pizzeria</title>
+</head>
+<body>
+
+<h2>🎤 Prenotazioni Pizzeria</h2>
+<button onclick="start()">Parla</button>
+<p id="log"></p>
+
+<script>
+const synth = window.speechSynthesis;
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const recognition = new SpeechRecognition();
+
+recognition.lang = "it-IT";
+recognition.interimResults = false;
+
+let lastData = null;
+
+function speak(text) {
+  if (!text) {
+    console.warn("Nessun testo da leggere");
+    return;
+  }
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "it-IT";
+  synth.speak(u);
+}
+
+function start() {
+  recognition.start();
+}
+
+recognition.onresult = async (event) => {
+  const text = event.results[0][0].transcript.toLowerCase();
+  document.getElementById("log").innerText = "👤 " + text;
+
+  try {
+    const res = await fetch("http://127.0.0.1:8000/voice", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text })
+    });
+
+    if (!res.ok) {
+      console.error("Errore backend:", res.status);
+      speak("C'è stato un errore, riprova.");
+      return;
+    }
+
+    const data = await res.json();
+    console.log("Risposta backend:", data);
+
+    if (!data || !data.reply) {
+      speak("Non ho capito, puoi ripetere?");
+      return;
+    }
+
+    speak(data.reply);
+
+    if (data.stato === "conferma") {
+      lastData = data;
+    }
+
+  } catch (err) {
+    console.error("Errore fetch:", err);
+    speak("Errore di connessione al server.");
+  }
+};
+</script>
+
+</body>
+</html>

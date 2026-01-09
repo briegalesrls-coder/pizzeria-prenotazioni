@@ -1,0 +1,342 @@
+from fastapi import FastAPI, Request, Form
+from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+from datetime import datetime, timedelta
+from twilio.twiml.messaging_response import MessagingResponse
+import json, os, uuid, re
+
+app = FastAPI()
+
+# =========================
+# MIDDLEWARE
+# =========================
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key="cambia-questa-chiave"
+)
+
+# =========================
+# CONFIG
+# =========================
+
+DATA_FILE = "data/prenotazioni.json"
+
+DASH_USER = "admin"
+DASH_PASS = "pizza123"
+
+MAX_COPERTI_PER_TURNO = 40
+
+TURNI = {
+    "turno_1": {"inizio": (19, 0), "fine": (19, 30)},
+    "turno_2": {"inizio": (21, 30), "fine": (22, 0)},
+}
+
+prenotazioni = {}
+
+# =========================
+# PERSISTENZA
+# =========================
+
+def salva():
+    os.makedirs("data", exist_ok=True)
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump({"prenotazioni": prenotazioni}, f, ensure_ascii=False, indent=2)
+
+def carica():
+    global prenotazioni
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            d = json.load(f)
+            prenotazioni = d.get("prenotazioni", {})
+
+carica()
+
+# =========================
+# UTILS
+# =========================
+
+def assegna_turno(ora):
+    h, m = map(int, ora.split(":"))
+    tot = h * 60 + m
+    for k, v in TURNI.items():
+        i = v["inizio"][0] * 60 + v["inizio"][1]
+        f = v["fine"][0] * 60 + v["fine"][1]
+        if i <= tot <= f:
+            return k
+    return None
+
+def estrai_nome_cognome(t):
+    m = re.match(r"([A-Z][a-z]+)\s+([A-Z][a-z]+)", t)
+    return m.groups() if m else (None, None)
+
+def estrai_numero(t):
+    m = re.search(r"\b3\d{8,9}\b", t)
+    return m.group(0) if m else None
+
+def estrai_persone(t):
+    m = re.search(r"(\d+)\s*(persone|pax)?", t)
+    return int(m.group(1)) if m else None
+
+def estrai_ora(t):
+    m = re.search(r"(\d{1,2}:\d{2})", t)
+    return m.group(1) if m else None
+
+def estrai_data(t):
+    oggi = datetime.now().date()
+    if "domani" in t:
+        return (oggi + timedelta(days=1)).isoformat()
+    return oggi.isoformat()
+
+# =========================
+# CORE PRENOTAZIONE
+# =========================
+
+def crea_prenotazione(nome, cognome, telefono, data, ora, persone, fonte):
+    turno = assegna_turno(ora)
+    if not turno:
+        return False, "⛔ Orario non disponibile."
+
+    prenotazioni.setdefault(data, {}).setdefault(turno, [])
+
+    pren = {
+        "id": str(uuid.uuid4()),
+        "nome": nome,
+        "cognome": cognome,
+        "telefono": telefono,
+        "data": data,
+        "ora": ora,
+        "turno": turno,
+        "persone": persone,
+        "fonte": fonte,
+        "stato": "attiva",
+        "timestamp": datetime.now().isoformat()
+    }
+
+    prenotazioni[data][turno].append(pren)
+    salva()
+
+    return True, (
+        f"✅ Prenotazione confermata\n\n"
+        f"{nome} {cognome}\n"
+        f"📅 {data}\n🕤 {ora}\n"
+        f"👥 {persone} persone\n"
+        f"📞 {telefono}"
+    )
+
+# =========================
+# WHATSAPP TWILIO
+# =========================
+
+@app.post("/whatsapp/twilio")
+async def whatsapp_twilio(req: Request):
+    form = await req.form()
+    body = form.get("Body", "")
+    body_l = body.lower()
+
+    nome, cognome = estrai_nome_cognome(body)
+    telefono = estrai_numero(body_l)
+    persone = estrai_persone(body_l)
+    ora = estrai_ora(body_l)
+    data = estrai_data(body_l)
+
+    resp = MessagingResponse()
+
+    if not nome or not cognome:
+        resp.message("✍️ Indica nome e cognome.")
+        return PlainTextResponse(str(resp))
+
+    if not telefono or not persone or not ora:
+        resp.message("Messaggio incompleto.")
+        return PlainTextResponse(str(resp))
+
+    ok, msg = crea_prenotazione(
+        nome, cognome, telefono, data, ora, persone, "whatsapp"
+    )
+
+    resp.message(msg)
+    return PlainTextResponse(str(resp))
+
+# =========================
+# LOGIN
+# =========================
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page():
+    return """
+    <h2>Login Dashboard</h2>
+    <form method="post">
+      <input name="username" placeholder="Username"><br><br>
+      <input name="password" type="password" placeholder="Password"><br><br>
+      <button>Entra</button>
+    </form>
+    """
+
+@app.post("/login")
+def login(request: Request, username: str = Form(...), password: str = Form(...)):
+    if username == DASH_USER and password == DASH_PASS:
+        request.session["logged"] = True
+        return RedirectResponse("/dashboard", status_code=302)
+    return HTMLResponse("Credenziali errate")
+
+# =========================
+# DASHBOARD
+# =========================
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request):
+    if not request.session.get("logged"):
+        return RedirectResponse("/login", status_code=302)
+
+    return """
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body{font-family:Arial;padding:20px}
+    table{border-collapse:collapse;width:100%}
+    th,td{border:1px solid #ccc;padding:6px}
+    .attiva{background:#d4edda}
+    .annullata{background:#f8d7da}
+    input,select{width:95%}
+  </style>
+</head>
+<body>
+
+<h1>Dashboard Prenotazioni</h1>
+
+<input id="data">
+<button onclick="oggi()">Oggi</button>
+<button onclick="domani()">Domani</button>
+
+<br><br>
+
+<input id="search" placeholder="Cerca nome / cognome / telefono">
+<select id="filtro">
+  <option value="">Tutti</option>
+  <option value="attiva">Attive</option>
+  <option value="annullata">Annullate</option>
+</select>
+<button onclick="carica()">Carica</button>
+
+<table>
+<thead>
+<tr>
+<th>Nome</th><th>Cognome</th><th>Telefono</th>
+<th>Ora</th><th>Persone</th><th>Stato</th><th>Azioni</th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+
+<script>
+function oggi(){ data.value=new Date().toISOString().slice(0,10); carica(); }
+function domani(){ const d=new Date(); d.setDate(d.getDate()+1); data.value=d.toISOString().slice(0,10); carica(); }
+
+async function carica(){
+  const r = await fetch('/dashboard/lista?data='+data.value);
+  let d = await r.json();
+
+  const q = search.value.toLowerCase();
+  const f = filtro.value;
+
+  d = d.filter(p =>
+    (!q || (p.nome+p.cognome+p.telefono).toLowerCase().includes(q)) &&
+    (!f || p.stato===f)
+  );
+
+  tbody.innerHTML='';
+  d.forEach(p=>{
+    tbody.innerHTML+=`
+    <tr class="${p.stato}">
+      <td><input id="n_${p.id}" value="${p.nome}"></td>
+      <td><input id="c_${p.id}" value="${p.cognome}"></td>
+      <td><input id="t_${p.id}" value="${p.telefono}"></td>
+      <td><input id="o_${p.id}" value="${p.ora}"></td>
+      <td><input id="p_${p.id}" type="number" value="${p.persone}"></td>
+      <td>${p.stato}</td>
+      <td>
+        ${p.stato==='attiva'
+          ? `<button onclick="modifica('${p.id}')">Modifica</button>
+             <button onclick="annulla('${p.id}')">Annulla</button>`
+          : ''}
+      </td>
+    </tr>`;
+  });
+}
+
+async function modifica(id){
+  await fetch('/dashboard/modifica',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      id,
+      nome:document.getElementById('n_'+id).value,
+      cognome:document.getElementById('c_'+id).value,
+      telefono:document.getElementById('t_'+id).value,
+      ora:document.getElementById('o_'+id).value,
+      persone:parseInt(document.getElementById('p_'+id).value)
+    })
+  });
+  carica();
+}
+
+async function annulla(id){
+  if(!confirm("Annullare la prenotazione?")) return;
+  await fetch('/dashboard/annulla',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id})
+  });
+  carica();
+}
+</script>
+
+</body>
+</html>
+"""
+
+@app.get("/dashboard/lista")
+def lista(data: str):
+    out=[]
+    for t in prenotazioni.get(data,{}):
+        out.extend(prenotazioni[data][t])
+    return out
+
+@app.post("/dashboard/modifica")
+async def modifica(req: Request):
+    b = await req.json()
+    for d in prenotazioni:
+        for t in prenotazioni[d]:
+            for p in prenotazioni[d][t]:
+                if p["id"]==b["id"] and p["stato"]=="attiva":
+                    p.update({
+                        "nome":b["nome"],
+                        "cognome":b["cognome"],
+                        "telefono":b["telefono"],
+                        "ora":b["ora"],
+                        "persone":b["persone"]
+                    })
+                    salva()
+                    return {"ok":True}
+    return {"ok":False}
+
+@app.post("/dashboard/annulla")
+async def annulla(req: Request):
+    b = await req.json()
+    for d in prenotazioni:
+        for t in prenotazioni[d]:
+            for p in prenotazioni[d][t]:
+                if p["id"]==b["id"]:
+                    p["stato"]="annullata"
+                    salva()
+                    return {"ok":True}
+    return {"ok":False}

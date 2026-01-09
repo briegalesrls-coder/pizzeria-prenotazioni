@@ -1,0 +1,997 @@
+{
+  "prenotazioni": {
+    "2026-01-03": {
+      "turno_1": [
+        {
+          "id": "7bf181cc-9631-4bb7-8b65-31654fec1fc8",
+          "nome": "Ale",
+          "cognome": "D",
+          "telefono": "3463159796",
+          "data": "2026-01-03",
+          "ora": "21:30",
+          "turno": "turno_1",
+          "persone": 7,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-03T18:31:35.318188",
+          "storico": [
+            {
+              "azione": "modificata_cliente",
+              "timestamp": "2026-01-07T16:19:23.489853",
+              "fonte": "whatsapp",
+              "dettagli": {
+                "prima": "19:15",
+                "dopo": "21:30"
+              }
+            }
+          ]
+        },
+        {
+          "id": "796e08a0-02ba-4933-94cc-ea3e88068f48",
+          "nome": "Aeeee",
+          "cognome": "Sss",
+          "telefono": "3463159797",
+          "data": "2026-01-03",
+          "ora": "19:00",
+          "turno": "turno_1",
+          "persone": 7,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-03T18:32:17.915086"
+        },
+        {
+          "id": "6ede467c-df7c-4096-bbc4-a241cf271baf",
+          "nome": "Cale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-03",
+          "ora": "19:20",
+          "turno": "turno_1",
+          "persone": 2,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-03T19:14:45.750215"
+        }
+      ],
+      "turno_2": [
+        {
+          "id": "72868324-c4c0-48bf-91fa-3d863244167e",
+          "nome": "Marco",
+          "telefono": "3331234567",
+          "data": "2026-01-03",
+          "turno": "turno_2",
+          "ora": "21:30",
+          "persone": 4,
+          "tavoli": {
+            "accorpabili": 2
+          },
+          "fonte": "telefono",
+          "stato": "annullata",
+          "timestamp": "2026-01-03T00:46:34.454480",
+          "timestamp_modifica": "2026-01-03T01:17:42.174897",
+          "storico": [
+            {
+              "azione": "annullata_cliente",
+              "timestamp": "2026-01-07T16:53:58.176661",
+              "fonte": "whatsapp",
+              "dettagli": {}
+            }
+          ]
+        },
+        {
+          "id": "62e111b4-f6bf-4e2f-afe1-5e10dec54349",
+          "nome": "Ciao",
+          "cognome": "Vorrei",
+          "telefono": "3331234567",
+          "data": "2026-01-03",
+          "ora": "21:30",
+          "turno": "turno_2",
+          "persone": 4,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-03T17:08:19.872868",
+          "storico": [
+            {
+              "azione": "annullata_cliente",
+              "timestamp": "2026-01-07T16:56:12.456760",
+              "fonte": "whatsapp",
+              "dettagli": {}
+            }
+          ]
+        },
+        {
+          "id": "fbcd74a4-3cbb-4f11-b56a-bf10cc6d14f5",
+          "nome": "Framd",
+          "cognome": "Dol",
+          "telefono": "3287777777",
+          "data": "2026-01-03",
+          "ora": "21:35",
+          "turno": "turno_2",
+          "persone": 9,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-03T18:27:24.716276"
+        }
+      ]
+    },
+    "2026-01-04": {
+      "turno_2": [
+        {
+          "id": "64b4c00d-8a1e-486e-b4e9-1bd7341b7a57",
+          "nome": "Marco",
+          "cognome": "Rossi",
+          "telefono": "3311234566",
+          "data": "2026-01-04",
+          "ora": "21:30",
+          "turno": "turno_2",
+          "persone": 4,
+          "tavoli": {
+            "accorpabili": 2
+          },
+          "fonte": "whatsapp",
+          "stato": "attiva",
+          "timestamp": "2026-01-03T01:59:32.487125"
+        },
+        {
+          "id": "86aa0123-a716-446c-a7fd-08ca5c560fb1",
+          "nome": "Marco",
+          "cognome": "Pippo",
+          "telefono": "3311234566",
+          "data": "2026-01-04",
+          "ora": "21:30",
+          "turno": "turno_2",
+          "persone": 4,
+          "tavoli": {
+            "accorpabili": 2
+          },
+          "fonte": "whatsapp",
+          "stato": "annullata",
+          "timestamp": "2026-01-03T02:05:25.742838"
+        },
+        {
+          "id": "13b572cb-0f50-4c59-b52b-de2ab84b439f",
+          "nome": "Alessandro",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-04",
+          "ora": "21:30",
+          "turno": "turno_2",
+          "persone": 9,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-03T18:26:15.695501"
+        }
+      ],
+      "turno_1": []
+    },
+    "2026-01-05": {
+      "turno_2": [
+        {
+          "id": "455b1cd4-403e-4aae-baba-9a9cf72fcb1f",
+          "nome": "Marco",
+          "cognome": "Pippo",
+          "telefono": "3311234566",
+          "data": "2026-01-05",
+          "ora": "21:30",
+          "turno": "turno_2",
+          "persone": 4,
+          "fonte": "whatsapp",
+          "stato": "annullata",
+          "timestamp": "2026-01-04T21:50:39.589691"
+        },
+        {
+          "id": "bd08f4fb-5337-4406-a3b8-087830f1c662",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "21:35",
+          "turno": "turno_2",
+          "persone": 3,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-05T00:54:18.803882"
+        },
+        {
+          "id": "c3bf4ecd-28e0-4e80-9a0a-6f3f1d24768d",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "21:35",
+          "turno": "turno_2",
+          "persone": 3,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-05T00:54:22.503775"
+        },
+        {
+          "id": "045ec2a7-7e27-4438-a815-20ea9184d872",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "21:35",
+          "turno": "turno_2",
+          "persone": 3,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-05T00:54:22.840762"
+        },
+        {
+          "id": "388b5997-cbed-4b12-89b1-950d40c27122",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "21:35",
+          "turno": "turno_2",
+          "persone": 3,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-05T00:54:23.198856"
+        },
+        {
+          "id": "6a04eb50-c84c-49b1-a181-63d0dfa0120c",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "21:35",
+          "turno": "turno_2",
+          "persone": 3,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-05T00:54:23.510534"
+        },
+        {
+          "id": "354a9758-640c-40b5-be87-7dc7e40b6cc4",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "21:35",
+          "turno": "turno_2",
+          "persone": 3,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-05T00:54:23.836066"
+        },
+        {
+          "id": "c8cae9fc-0d06-48f9-9e46-2479a3d49113",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "21:40",
+          "turno": "turno_2",
+          "persone": 3,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-05T00:55:37.634697"
+        },
+        {
+          "id": "fc777cbd-40ef-4983-b31f-685ae1ea5bf5",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "21:40",
+          "turno": "turno_2",
+          "persone": 3,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-05T00:55:43.343909"
+        },
+        {
+          "id": "656d5cfe-3c21-425b-9745-918dc86d8069",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "21:40",
+          "turno": "turno_2",
+          "persone": 3,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-05T00:55:44.042425"
+        },
+        {
+          "id": "c21d2346-f7df-42bd-a393-8ce7a4045c8f",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "21:40",
+          "turno": "turno_2",
+          "persone": 3,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-05T00:56:04.198392"
+        },
+        {
+          "id": "e9fafa1c-9eb5-4373-9cbe-2e9f8e88cbb4",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "21:40",
+          "turno": "turno_2",
+          "persone": 3,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-05T00:56:04.544813"
+        },
+        {
+          "id": "06108d12-00e5-4525-a551-8c99a000d736",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "21:40",
+          "turno": "turno_2",
+          "persone": 3,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-05T00:56:04.879135"
+        },
+        {
+          "id": "dee163ff-c2aa-48e1-95d6-f43aa9f67efd",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "21:40",
+          "turno": "turno_2",
+          "persone": 8,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-05T00:56:54.164867"
+        },
+        {
+          "id": "ee36da0a-7af0-40bd-a0d3-8ec1b0627019",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "21:40",
+          "turno": "turno_2",
+          "persone": 3,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-05T00:56:56.192629"
+        },
+        {
+          "id": "4276b8e4-e9fe-4383-9556-9fa83e74c6ad",
+          "nome": "Alesssss",
+          "cognome": "Ss",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "21:35",
+          "turno": "turno_2",
+          "persone": 1,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-05T00:58:08.308526"
+        },
+        {
+          "id": "1f775ef7-cfb9-4d12-9da8-cb03cd06428c",
+          "nome": "Alesssss",
+          "cognome": "Ss",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "21:35",
+          "turno": "turno_2",
+          "persone": 1,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-05T00:58:24.374210"
+        },
+        {
+          "id": "174ea6a2-f0ef-4bf2-915c-e474ab66b1de",
+          "nome": "Puzza",
+          "cognome": "Cu",
+          "telefono": "3463159795",
+          "data": "2026-01-05",
+          "ora": "21:30",
+          "turno": "turno_2",
+          "persone": 10,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-05T01:36:57.839825"
+        },
+        {
+          "id": "1c5479f3-edcb-49a6-a21b-681a2c7e6068",
+          "nome": "Alessandro",
+          "cognome": "Pipparolo",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "21:45",
+          "turno": "turno_2",
+          "persone": 12,
+          "fonte": "whatsapp_soci",
+          "stato": "attiva",
+          "timestamp": "2026-01-05T15:01:43.324500",
+          "storico": [
+            {
+              "azione": "creata",
+              "timestamp": "2026-01-05T15:01:43.324503",
+              "fonte": "whatsapp_soci",
+              "dettagli": {
+                "ora": "21:45",
+                "persone": 12
+              }
+            }
+          ]
+        }
+      ],
+      "turno_1": [
+        {
+          "id": "7c9b7783-496e-400e-9461-f34a85e510ff",
+          "nome": "Ake",
+          "cognome": "P",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "19:20",
+          "turno": "turno_1",
+          "persone": 3,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-05T00:45:48.050460"
+        },
+        {
+          "id": "4d40f1b6-0cdb-4209-aeb5-7861cbc8ea32",
+          "nome": "Ake",
+          "cognome": "P",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "19:20",
+          "turno": "turno_1",
+          "persone": 3,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-05T00:46:21.702023"
+        },
+        {
+          "id": "c2fc6e33-f585-479a-9a36-5a74725eac94",
+          "nome": "Ake",
+          "cognome": "P",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "19:20",
+          "turno": "turno_1",
+          "persone": 3,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-05T00:46:23.622984"
+        },
+        {
+          "id": "c8487a0f-87fb-469e-8e32-ecdf2fea754d",
+          "nome": "Ake",
+          "cognome": "P",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "19:20",
+          "turno": "turno_1",
+          "persone": 3,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-05T00:46:24.754225"
+        },
+        {
+          "id": "4df8491d-dc31-4ecf-addb-0543d79b9a23",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "19:30",
+          "turno": "turno_1",
+          "persone": 7,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-05T01:16:03.891198"
+        },
+        {
+          "id": "9b56752f-4952-488e-97a5-523ba5ffbbe6",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "19:30",
+          "turno": "turno_1",
+          "persone": 7,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-05T01:16:11.430652"
+        },
+        {
+          "id": "cbde9031-0ecc-4d30-ad71-943b71d72377",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "19:30",
+          "turno": "turno_1",
+          "persone": 7,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-05T01:16:34.761582"
+        },
+        {
+          "id": "3f8ba0f5-6a4d-4fc2-b8f6-7648beed7536",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "19:30",
+          "turno": "turno_1",
+          "persone": 7,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-05T01:16:36.499766"
+        },
+        {
+          "id": "a2a610c2-4fae-4c8c-957d-070660d4bdec",
+          "nome": "Ale",
+          "cognome": "Cccccccccc",
+          "telefono": "3463159796",
+          "data": "2026-01-05",
+          "ora": "19:15",
+          "turno": "turno_1",
+          "persone": 2,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-05T01:20:45.546745"
+        },
+        {
+          "id": "2e3a26e6-2a03-454f-8ccd-fcce2dd560fb",
+          "nome": "Monia",
+          "cognome": "Grimaldi",
+          "telefono": "3388199648",
+          "data": "2026-01-05",
+          "ora": "19:30",
+          "turno": "turno_1",
+          "persone": 5,
+          "fonte": "whatsapp_soci",
+          "stato": "annullata",
+          "timestamp": "2026-01-05T03:11:09.218176",
+          "storico": [
+            {
+              "azione": "creata",
+              "timestamp": "2026-01-05T03:11:09.218178",
+              "fonte": "whatsapp_soci",
+              "dettagli": {
+                "ora": "19:30",
+                "persone": 5
+              }
+            },
+            {
+              "azione": "annullata_cliente",
+              "timestamp": "2026-01-07T16:51:21.155262",
+              "fonte": "whatsapp",
+              "dettagli": {}
+            }
+          ]
+        }
+      ],
+      "_alert_turno_1_quasi_pieno": false,
+      "_alert_turno_2_quasi_pieno": true
+    },
+    "2026-01-06": {
+      "turno_1": [
+        {
+          "id": "f7c58621-1d89-432b-acd7-2eefeeeee849",
+          "nome": "Alessandro",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-06",
+          "ora": "19:15",
+          "turno": "turno_1",
+          "persone": 2,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-05T00:42:09.326117"
+        },
+        {
+          "id": "94d04dbd-7103-4f45-aebc-86dea08dd18a",
+          "nome": "Monia",
+          "cognome": "Grimaldi",
+          "telefono": "3388199648",
+          "data": "2026-01-06",
+          "ora": "19:30",
+          "turno": "turno_1",
+          "persone": 5,
+          "fonte": "whatsapp_soci",
+          "stato": "annullata",
+          "timestamp": "2026-01-05T02:09:19.481947",
+          "storico": [
+            {
+              "azione": "annullata_cliente",
+              "timestamp": "2026-01-07T16:52:12.196828",
+              "fonte": "whatsapp",
+              "dettagli": {}
+            }
+          ]
+        }
+      ],
+      "turno_2": [
+        {
+          "id": "d82f3ede-83cb-4555-897e-4106456ab798",
+          "nome": "Marco",
+          "cognome": "Pippo",
+          "telefono": "3311234566",
+          "data": "2026-01-06",
+          "ora": "21:30",
+          "turno": "turno_2",
+          "persone": 4,
+          "fonte": "whatsapp",
+          "stato": "attiva",
+          "timestamp": "2026-01-05T01:39:38.548428"
+        },
+        {
+          "id": "81d7a05b-5abf-4588-9c90-6df01f3a0e15",
+          "nome": "Marco",
+          "cognome": "Pippo",
+          "telefono": "3311234566",
+          "data": "2026-01-06",
+          "ora": "21:30",
+          "turno": "turno_2",
+          "persone": 4,
+          "fonte": "whatsapp_manual",
+          "stato": "attiva",
+          "timestamp": "2026-01-05T01:46:26.551828"
+        },
+        {
+          "id": "48bdbc09-0a5c-4f69-a927-3a854f78849e",
+          "nome": "Marco",
+          "cognome": "Pippo",
+          "telefono": "3311234566",
+          "data": "2026-01-06",
+          "ora": "21:30",
+          "turno": "turno_2",
+          "persone": 4,
+          "fonte": "whatsapp_soci",
+          "stato": "attiva",
+          "timestamp": "2026-01-05T02:06:24.567984"
+        }
+      ]
+    },
+    "2026-01-07": {
+      "turno_1": [
+        {
+          "id": "0893d047-bb14-4ad4-942c-a845d1a5e148",
+          "nome": "Monia",
+          "cognome": "Grimaldi",
+          "telefono": "3388199648",
+          "data": "2026-01-07",
+          "ora": "19:30",
+          "turno": "turno_1",
+          "persone": 5,
+          "fonte": "whatsapp_soci",
+          "stato": "annullata",
+          "timestamp": "2026-01-05T03:12:57.293912",
+          "storico": [
+            {
+              "azione": "creata",
+              "timestamp": "2026-01-05T03:12:57.293914",
+              "fonte": "whatsapp_soci",
+              "dettagli": {
+                "ora": "19:30",
+                "persone": 5
+              }
+            },
+            {
+              "azione": "annullata_cliente",
+              "timestamp": "2026-01-07T17:24:26.740863",
+              "fonte": "whatsapp",
+              "dettagli": {}
+            }
+          ]
+        },
+        {
+          "id": "83d988c7-53fd-408c-a0bd-a336782ac63c",
+          "nome": "Alessandro",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-07",
+          "ora": "19:20",
+          "turno": "turno_1",
+          "persone": 3,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-07T01:38:30.619914",
+          "storico": [
+            {
+              "azione": "creata",
+              "timestamp": "2026-01-07T01:38:30.619918",
+              "fonte": "voice_test",
+              "dettagli": {
+                "ora": "19:20",
+                "persone": 3
+              }
+            }
+          ]
+        },
+        {
+          "id": "0e175159-13ce-4c48-bbdb-0a3ca0ac146c",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159796",
+          "data": "2026-01-07",
+          "ora": "19:30",
+          "turno": "turno_1",
+          "persone": 3,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-07T01:52:09.476993",
+          "storico": [
+            {
+              "azione": "creata",
+              "timestamp": "2026-01-07T01:52:09.476999",
+              "fonte": "voice_test",
+              "dettagli": {
+                "ora": "19:30",
+                "persone": 3
+              }
+            }
+          ]
+        },
+        {
+          "id": "6bd8e203-97c1-4b43-881c-cb10d8dfdb9f",
+          "nome": "Ale",
+          "cognome": "Erpuzza",
+          "telefono": "3463159796",
+          "data": "2026-01-07",
+          "ora": "19:10",
+          "turno": "turno_1",
+          "persone": 4,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-07T15:45:34.101450",
+          "storico": [
+            {
+              "azione": "creata",
+              "timestamp": "2026-01-07T15:45:34.101456",
+              "fonte": "voice_test",
+              "dettagli": {
+                "ora": "19:10",
+                "persone": 4
+              }
+            }
+          ]
+        }
+      ],
+      "_alert_turno_1_quasi_pieno": false,
+      "_alert_turno_2_quasi_pieno": false,
+      "turno_2": [
+        {
+          "id": "cc486a4d-c59b-49b0-9115-688db51417a2",
+          "nome": "Mamma",
+          "cognome": "Sana",
+          "telefono": "3383159796",
+          "data": "2026-01-07",
+          "ora": "21:35",
+          "turno": "turno_2",
+          "persone": 1,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-07T15:47:15.849768",
+          "storico": [
+            {
+              "azione": "creata",
+              "timestamp": "2026-01-07T15:47:15.849772",
+              "fonte": "voice_test",
+              "dettagli": {
+                "ora": "21:45",
+                "persone": 9
+              }
+            },
+            {
+              "azione": "modificata_cliente",
+              "timestamp": "2026-01-07T16:23:15.065719",
+              "fonte": "whatsapp",
+              "dettagli": {
+                "prima": 9,
+                "dopo": 1
+              }
+            },
+            {
+              "azione": "modificata_cliente",
+              "timestamp": "2026-01-07T16:39:39.980459",
+              "fonte": "whatsapp",
+              "dettagli": {
+                "prima": "21:45",
+                "dopo": "21:35"
+              }
+            },
+            {
+              "azione": "annullata_cliente",
+              "timestamp": "2026-01-07T16:47:25.481036",
+              "fonte": "whatsapp",
+              "dettagli": {}
+            }
+          ]
+        }
+      ]
+    },
+    "2026-01-08": {
+      "turno_2": [
+        {
+          "id": "04e2e384-5ba3-4130-927d-0fa6cac7df82",
+          "nome": null,
+          "cognome": null,
+          "telefono": "3388199648",
+          "data": "2026-01-08",
+          "ora": "21:30",
+          "turno": "turno_2",
+          "persone": 20,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-07T00:39:17.914601",
+          "storico": [
+            {
+              "azione": "creata",
+              "timestamp": "2026-01-07T00:39:17.914608",
+              "fonte": "voice_test",
+              "dettagli": {
+                "ora": "21:30",
+                "persone": 20
+              }
+            }
+          ]
+        },
+        {
+          "id": "d4e1762f-871f-4902-a908-82b2395904a2",
+          "nome": "Mario",
+          "cognome": "Rossi",
+          "telefono": "3331234567",
+          "data": "2026-01-08",
+          "ora": "21:30",
+          "turno": "turno_2",
+          "persone": 2,
+          "fonte": "cliente",
+          "stato": "annullata",
+          "timestamp": "2026-01-07T15:22:32.517924",
+          "storico": [
+            {
+              "azione": "creata",
+              "timestamp": "2026-01-07T15:22:32.517929",
+              "fonte": "cliente",
+              "dettagli": {
+                "ora": "21:30",
+                "persone": 2
+              }
+            },
+            {
+              "azione": "annullata_cliente",
+              "timestamp": "2026-01-07T16:57:06.142229",
+              "fonte": "whatsapp",
+              "dettagli": {}
+            }
+          ]
+        },
+        {
+          "id": "e22a5e13-feff-49a1-9d3d-000111520ff2",
+          "nome": "gimm",
+          "cognome": "Rossi",
+          "telefono": "33312343333",
+          "data": "2026-01-08",
+          "ora": "21:30",
+          "turno": "turno_2",
+          "persone": 2,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-07T15:40:06.326045",
+          "storico": [
+            {
+              "azione": "creata",
+              "timestamp": "2026-01-07T15:40:06.326049",
+              "fonte": "voice_test",
+              "dettagli": {
+                "ora": "21:30",
+                "persone": 2
+              }
+            }
+          ]
+        }
+      ],
+      "_alert_turno_1_quasi_pieno": false,
+      "_alert_turno_2_quasi_pieno": false,
+      "turno_1": [
+        {
+          "id": "bcaf7b9d-cae1-49c4-8ee9-6485c2e8d385",
+          "nome": "Giovanni",
+          "cognome": "Rudi",
+          "telefono": "3388199648",
+          "data": "2026-01-08",
+          "ora": "19:30",
+          "turno": "turno_1",
+          "persone": 4,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-07T01:58:11.778534",
+          "storico": [
+            {
+              "azione": "creata",
+              "timestamp": "2026-01-07T01:58:11.778537",
+              "fonte": "voice_test",
+              "dettagli": {
+                "ora": "19:30",
+                "persone": 4
+              }
+            }
+          ]
+        },
+        {
+          "id": "6b6ef80b-2523-4304-bb3f-e378c8903138",
+          "nome": "Ale",
+          "cognome": "C",
+          "telefono": "3463159798",
+          "data": "2026-01-08",
+          "ora": "19:15",
+          "turno": "turno_1",
+          "persone": 4,
+          "fonte": "voice_test",
+          "stato": "annullata",
+          "timestamp": "2026-01-08T15:41:16.624959",
+          "storico": [
+            {
+              "azione": "creata",
+              "timestamp": "2026-01-08T15:41:16.624966",
+              "fonte": "voice_test",
+              "dettagli": {
+                "ora": "19:00",
+                "persone": 4
+              }
+            },
+            {
+              "azione": "modificata_cliente",
+              "timestamp": "2026-01-08T15:41:59.825670",
+              "fonte": "whatsapp",
+              "dettagli": {
+                "prima": "19:00",
+                "dopo": "19:15"
+              }
+            },
+            {
+              "azione": "annullata_cliente",
+              "timestamp": "2026-01-08T15:42:29.381509",
+              "fonte": "whatsapp",
+              "dettagli": {}
+            }
+          ]
+        }
+      ]
+    },
+    "2026-01-10": {
+      "turno_1": [
+        {
+          "id": "99e0d4d4-9652-4a15-9c78-49b2f0e0da20",
+          "nome": "Alessandro",
+          "cognome": "Conver",
+          "telefono": "3463159796",
+          "data": "2026-01-10",
+          "ora": "19:20",
+          "turno": "turno_1",
+          "persone": 4,
+          "fonte": "voice_test",
+          "stato": "attiva",
+          "timestamp": "2026-01-07T03:19:21.462871",
+          "storico": [
+            {
+              "azione": "creata",
+              "timestamp": "2026-01-07T03:19:21.462877",
+              "fonte": "voice_test",
+              "dettagli": {
+                "ora": "19:20",
+                "persone": 4
+              }
+            }
+          ]
+        }
+      ],
+      "_alert_turno_1_quasi_pieno": false,
+      "_alert_turno_2_quasi_pieno": false
+    }
+  }
+}
