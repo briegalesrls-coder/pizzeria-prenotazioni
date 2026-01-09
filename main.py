@@ -39,8 +39,16 @@ app.add_middleware(
 
 app.add_middleware(
     SessionMiddleware,
-    secret_key="cambia-questa-chiave"
+    SESSION_SECRET = os.environ.get("SESSION_SECRET")
+
+if not SESSION_SECRET:
+    raise RuntimeError("❌ SESSION_SECRET mancante")
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET
 )
+
 
 # =========================
 # CONFIG
@@ -53,8 +61,12 @@ AI_ENABLED = True   # 🔥 ON solo in test controllato
 
 DATA_FILE = "data/prenotazioni.json"
 
-DASH_USER = os.environ["DASH_USER"]
-DASH_PASS = os.environ["DASH_PASS"]
+DASH_USER = os.environ.get("DASH_USER")
+DASH_PASS = os.environ.get("DASH_PASS")
+
+if not DASH_USER or not DASH_PASS:
+    raise RuntimeError("❌ DASH_USER o DASH_PASS non definiti nelle env vars")
+
 print("BOOT ENV DASH_USER =", os.environ.get("DASH_USER"))
 print("BOOT ENV DASH_PASS =", os.environ.get("DASH_PASS"))
 
