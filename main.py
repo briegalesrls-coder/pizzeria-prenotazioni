@@ -656,7 +656,7 @@ def crea_prenotazione(nome, cognome, telefono, data, ora, persone, fonte):
 # =========================
 
 WHATSAPP_ADMINS = {
-    "whatsapp:+393463159796",  # TU
+    "whatsapp:+39",  # TU
 }
 
 WHATSAPP_STAFF = {
