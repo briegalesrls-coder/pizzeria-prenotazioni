@@ -13,12 +13,15 @@ from starlette.middleware.sessions import SessionMiddleware
 from datetime import datetime, timedelta
 from twilio.twiml.messaging_response import MessagingResponse
 from pydantic import BaseModel
+from fastapi.responses import RedirectResponse
 import json, os, uuid, re
 
 app = FastAPI()
 voice_sessions = {}
 
-
+@app.get("/")
+def root():
+    return RedirectResponse(url="/dashboard")
 # =========================
 # MIDDLEWARE
 # =========================
@@ -953,11 +956,12 @@ async def whatsapp_twilio(req: Request):
 # =========================
 
 @app.get("/dashboard", response_class=HTMLResponse)
+#def dashboard(request: Request):
+#    if not request.session.get("logged"):
+#        return RedirectResponse("/login", status_code=302)
 def dashboard(request: Request):
-    if not request.session.get("logged"):
-        return RedirectResponse("/login", status_code=302)
-
     return """
+
 <!DOCTYPE html>
 <html>
 <head>
