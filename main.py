@@ -53,8 +53,8 @@ AI_ENABLED = True   # 🔥 ON solo in test controllato
 
 DATA_FILE = "data/prenotazioni.json"
 
-DASH_USER = os.environ.get("DASH_USER", "admin")
-DASH_PASS = os.environ.get("DASH_PASS", "pizza123")
+DASH_USER = os.environ["DASH_USER"]
+DASH_PASS = os.environ["DASH_PASS"]
 print("BOOT ENV DASH_USER =", os.environ.get("DASH_USER"))
 print("BOOT ENV DASH_PASS =", os.environ.get("DASH_PASS"))
 
