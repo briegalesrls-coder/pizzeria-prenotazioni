@@ -53,24 +53,17 @@ app.add_middleware(
 # CONFIG
 # =========================
 
-DASH_USER = os.environ.get("DASH_USER")
-DASH_PASS = os.environ.get("DASH_PASS")
-
-if not DASH_USER or not DASH_PASS:
-    raise RuntimeError("❌ DASH_USER o DASH_PASS non definiti")
-
-
-
-# =========================
-# CONFIG
-# =========================
 SESSION_TIMEOUT_SEC = 300  # 5 minuti
-# =========================
-# AI LAYER TOGGLE
-# =========================
+
 AI_ENABLED = True   # 🔥 ON solo in test controllato
 
 DATA_FILE = "data/prenotazioni.json"
+
+MAX_COPERTI_PER_TURNO = 40
+
+# =========================
+# DASHBOARD AUTH (ENV)
+# =========================
 
 DASH_USER = os.environ.get("DASH_USER")
 DASH_PASS = os.environ.get("DASH_PASS")
@@ -78,10 +71,9 @@ DASH_PASS = os.environ.get("DASH_PASS")
 if not DASH_USER or not DASH_PASS:
     raise RuntimeError("❌ DASH_USER o DASH_PASS non definiti nelle env vars")
 
-print("BOOT ENV DASH_USER =", os.environ.get("DASH_USER"))
-print("BOOT ENV DASH_PASS =", os.environ.get("DASH_PASS"))
+print("BOOT ENV DASH_USER =", DASH_USER)
+print("BOOT ENV DASH_PASS = ***")
 
-MAX_COPERTI_PER_TURNO = 40
 
 # =========================
 # DEFINIZIONE TURNI – PIANIFICAZIONE SETTIMANALE
